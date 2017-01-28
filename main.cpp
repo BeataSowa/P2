@@ -17,33 +17,26 @@ struct zadanie
 	int requester_track;
 };
 
+struct plik_caly
+{
+	int program_id;
+	char* nazwa_pliku;
+};
+
+
 // Semafory
-//sem_t pojawilo_sie_nowe_zadanie;
-//sem_t zadanie_obsluzone;
 sem_t odpowiedz;
 
-/*/ Program
-struct program 
-{
-	int id;
-	queue <int> zadania;
-	
-};*/
-
-//Bufor (kolejka zadan)
+// Bufor (kolejka zadan)
 vector<zadanie> lista_zadan;
-
-// Zmienne
-
-//program programy[1]; 
 	
 void* programFun (void* t)
 {
 	printf("Startuje program\n");
-	char* nazwa_pliku = (char*) t;
+	struct plik_caly* moj_plik = (struct plik_caly*) t;
 	ifstream plik;
 
-	plik.open(nazwa_pliku);
+	plik.open(moj_plik->nazwa_pliku);
 	
 	if (plik.good())
 	{
@@ -51,7 +44,7 @@ void* programFun (void* t)
 		zadanie moje_zadanie;
 		while (plik >> track)
 		{
-			moje_zadanie.program_id = 1;
+			moje_zadanie.program_id = moj_plik->program_id;
 			moje_zadanie.requester_track = track;
 			printf("requester %d track %d\n", moje_zadanie.program_id, moje_zadanie.requester_track);
 			lista_zadan.push_back(moje_zadanie);
@@ -85,38 +78,35 @@ void* glowicaFun (void* t)
 		
 	}
 	pthread_exit(NULL);
-	/*	while (1)
-	{
-		// czekaj na zadanie do osluzenia
-		printf("Głowica czeka na zadanie");
-		sem_wait(& pojawilo_sie_nowe_zadanie);
-		
-		// wyslij informację że nowe zadanie bedzie obsłużone
-		printf("zadanie ...");
-		
-		// obsłuż zadanie
-		printf("Zadanie cos tam mialo wypisywac ;"));
-		sem_post (&zadanie_obsluzone);
-		
-		// wyslij informacje zwotna o obsluzeniu programu
-		// ustal miejsce dalszego polozenia glowicy/ oblicz gdzie ma się udać glowica
-		
-		//
-		
-	}
-	*/	
 }
 
 int main(int argc, char* argv[])
 {
 	sem_init(&odpowiedz, 0, 0);
-	pthread_t programWatek;
-	pthread_create (&programWatek, NULL, programFun, (void* )argv[1]);
+	
+	int n=2;
+	//Inicjuj wątki programów
+	plik_caly moj_plik;
+	vector <plik_caly> dane_wejsciowe;
+	
+	pthread_t programWatek[n];
+	
+	for (int i=0; i<n; i++)
+	{
+		
+		moj_plik.program_id = i;
+		moj_plik.nazwa_pliku = argv[i+1];
+		dane_wejsciowe.push_back(moj_plik);
+		pthread_create (&programWatek[i], NULL, programFun, &dane_wejsciowe.back());
+	}
 	
 	pthread_t glowicaWatek;
 	pthread_create (&glowicaWatek, NULL, glowicaFun, NULL);
+	for (int i=0; i<n; i++)
+	{
+		pthread_join(programWatek[i], NULL);
+	}
 	
-	pthread_join(programWatek, NULL);
 	pthread_join(glowicaWatek, NULL);
 	
 	return 0;
