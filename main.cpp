@@ -5,6 +5,7 @@
 #include <queue>
 #include <vector>
 #include <iostream>
+#include <fstream>
 
 
 using namespace std;
@@ -39,26 +40,27 @@ vector<zadanie> lista_zadan;
 void* programFun (void* t)
 {
 	printf("Startuje program\n");
-	queue<int> zadania;
-	zadania.push(233);
-	zadania.push(239);
-	zadania.push(533);
-	zadania.push(33);
-	zadania.push(23);
+	char* nazwa_pliku = (char*) t;
+	ifstream plik;
+
+	plik.open(nazwa_pliku);
 	
-	zadanie moje_zadanie;
-	while (!zadania.empty())
+	if (plik.good())
 	{
-		moje_zadanie.program_id = 1;
-		moje_zadanie.requester_track = zadania.front();
-		zadania.pop();
-		printf("requester %d track %d\n", moje_zadanie.program_id, moje_zadanie.requester_track);
-		lista_zadan.push_back(moje_zadanie);
+		int track;
+		zadanie moje_zadanie;
+		while (plik >> track)
+		{
+			moje_zadanie.program_id = 1;
+			moje_zadanie.requester_track = track;
+			printf("requester %d track %d\n", moje_zadanie.program_id, moje_zadanie.requester_track);
+			lista_zadan.push_back(moje_zadanie);
 	
-		// Czekaj na odpowiedz z glowicy
-		sem_wait(&odpowiedz);
+			// Czekaj na odpowiedz z glowicy
+			sem_wait(&odpowiedz);
+		}
+	
 	}
-	
 	
 	pthread_exit(NULL);
 }
@@ -105,11 +107,11 @@ void* glowicaFun (void* t)
 	*/	
 }
 
-int main()
+int main(int argc, char* argv[])
 {
 	sem_init(&odpowiedz, 0, 0);
 	pthread_t programWatek;
-	pthread_create (&programWatek, NULL, programFun, NULL);
+	pthread_create (&programWatek, NULL, programFun, (void* )argv[1]);
 	
 	pthread_t glowicaWatek;
 	pthread_create (&glowicaWatek, NULL, glowicaFun, NULL);
