@@ -19,6 +19,7 @@ struct zadanie
 // Semafory
 //sem_t pojawilo_sie_nowe_zadanie;
 //sem_t zadanie_obsluzone;
+sem_t odpowiedz;
 
 /*/ Program
 struct program 
@@ -55,6 +56,7 @@ void* programFun (void* t)
 		lista_zadan.push_back(moje_zadanie);
 	
 		// Czekaj na odpowiedz z glowicy
+		sem_wait(&odpowiedz);
 	}
 	
 	
@@ -74,7 +76,11 @@ void* glowicaFun (void* t)
 			zadanie obecnie_obslugiwanie_zadanie = lista_zadan.back();
 			printf("service requester %d track %d\n", obecnie_obslugiwanie_zadanie.program_id, obecnie_obslugiwanie_zadanie.requester_track);
 			lista_zadan.pop_back();
+			// Poinformuj, że zadanie zostało obsłużone
+			 sem_post(&odpowiedz);
 		};
+		
+		
 	}
 	pthread_exit(NULL);
 	/*	while (1)
@@ -101,6 +107,7 @@ void* glowicaFun (void* t)
 
 int main()
 {
+	sem_init(&odpowiedz, 0, 0);
 	pthread_t programWatek;
 	pthread_create (&programWatek, NULL, programFun, NULL);
 	
