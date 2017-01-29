@@ -6,6 +6,7 @@
 #include <vector>
 #include <iostream>
 #include <fstream>
+#include <stdlib.h> //atoi
 
 
 using namespace std;
@@ -84,6 +85,12 @@ int main(int argc, char* argv[])
 {
 	sem_init(&odpowiedz, 0, 0);
 	
+	// wczytanie z poziomu konsoli liczby zadan do obsluzenia	
+	//char* liczba_zadan=	argv[1];
+	int liczba_zadan_w_kolejce = atoi (argv[1]);
+	printf("liczba zadan w kolejce %d\n", liczba_zadan_w_kolejce);
+	
+	
 	int n=2;
 	//Inicjuj wątki programów
 	plik_caly moj_plik;
@@ -95,7 +102,7 @@ int main(int argc, char* argv[])
 	{
 		
 		moj_plik.program_id = i;
-		moj_plik.nazwa_pliku = argv[i+1];
+		moj_plik.nazwa_pliku = argv[i+2];
 		dane_wejsciowe.push_back(moj_plik);
 		pthread_create (&programWatek[i], NULL, programFun, &dane_wejsciowe.back());
 	}
