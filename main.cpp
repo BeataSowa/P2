@@ -7,6 +7,7 @@
 #include <iostream>
 #include <fstream>
 #include <stdlib.h> //atoi
+#include <math.h>
 
 using namespace std;
 
@@ -29,6 +30,7 @@ vector<zadanie> lista_zadan;
 
 //Semafory dodane
 sem_t dostep_do_listy_zadan;
+sem_t dostep_do_listy_zadan_dla_okreslonej_liczby_programow;
 
 void* programFun (void* t)
 {
@@ -36,8 +38,8 @@ void* programFun (void* t)
 	sem_t nowy;
 	ifstream plik;
 
-	printf("Startuje program %d\n", moj_plik->program_id);
-
+	//printf("Startuje program %d\n", moj_plik->program_id);
+    
 	sem_init(&nowy, 0, 0);
 	plik.open(moj_plik->nazwa_pliku);
 
@@ -50,25 +52,25 @@ void* programFun (void* t)
 		moje_zadanie.odpowiedz_czy_zostalo_wykonane_zadanie = &nowy;
 
 		while (plik >> track)
-		{   
-            // Czekaj na możliwość umieszczenia zadania w liscie zadan(wektorze) dodane
-            printf("Program %d czeka na możliwosc umieszczenia żądania do listy żądań\n", moje_zadanie.program_id);
+		{
+            // Otwarcie określonej liczby programów
+            sem_wait(&dostep_do_listy_zadan_dla_okreslonej_liczby_programow);
+    
+            // Czekaj na możliwość umieszczenia zadania w liscie zadan(wektorze) 
+            //printf("Program %d czeka na możliwosc umieszczenia żądania do listy żądań\n", moje_zadanie.program_id);
             sem_wait(&dostep_do_listy_zadan);
             
 			moje_zadanie.requester_track = track;
-			printf("requester %d track %d\n", moje_zadanie.program_id, moje_zadanie.requester_track);
+            cout << "requester " << moje_zadanie.program_id << " track "  << moje_zadanie.requester_track << endl;
+			//printf("requester %d track %d\n", moje_zadanie.program_id, moje_zadanie.requester_track);
 			lista_zadan.push_back(moje_zadanie);
 
-            // Zwolnij dostęp do listy żądań dodane
+            // Zwolnij dostęp do listy żądań 
             sem_post(&dostep_do_listy_zadan);
             
 			// Czekaj na odpowiedz z glowicy 
 			sem_wait(&nowy);
-            
-            
-            
 		}
-
 	}
 
 	pthread_exit(NULL);
@@ -78,40 +80,72 @@ void* programFun (void* t)
 
 void* glowicaFun (void* t)
 {
-	printf("Startuje glowica\n");
-	// int polozenieglowicy = 0;
+	//printf("Startuje glowica\n");
+	int polozenieglowicy = 0;
+    
 	while (true)
 	{
-        // Czekaj na dostęp do listy zadań dodane
+        // Czekaj na dostęp do listy zadań 
         sem_wait(&dostep_do_listy_zadan);
         
 		if (!lista_zadan.empty())
 		{
-			zadanie obecnie_obslugiwanie_zadanie = lista_zadan.back();
-			printf("service requester %d track %d\n", obecnie_obslugiwanie_zadanie.program_id, obecnie_obslugiwanie_zadanie.requester_track);
-			lista_zadan.pop_back();
-			// Poinformuj, że zadanie zostało obsłużone
-			sem_post(obecnie_obslugiwanie_zadanie.odpowiedz_czy_zostalo_wykonane_zadanie);
+            vector<zadanie>::iterator it = lista_zadan.begin();
+            vector<zadanie>::iterator obecnie_obslugiwane_zadanie = it;
+            
+            int roznica_aktualnego_a_elementem = abs(polozenieglowicy - (*obecnie_obslugiwane_zadanie).requester_track);
+            it++;
+            
+            // Obliczenie najmniejszej odleglosci pomiedzy obecnym polozeniem glowicy a jednym z n programow
+            while(it != lista_zadan.end())
+            {
+                int temp;
+                temp = (abs(polozenieglowicy - (*it).requester_track));
+                
+                if (roznica_aktualnego_a_elementem > temp)
+                {
+                    roznica_aktualnego_a_elementem=temp;
+                    obecnie_obslugiwane_zadanie= it;
+                }
+                it++;
+            }
+
+            polozenieglowicy= (*obecnie_obslugiwane_zadanie).requester_track;
+            
+            cout << "service requester " << (*obecnie_obslugiwane_zadanie).program_id << " track "  << (*obecnie_obslugiwane_zadanie).requester_track << endl;
+            
+			//printf("service requester %d track %d\n", (*obecnie_obslugiwane_zadanie).program_id, (*obecnie_obslugiwane_zadanie).requester_track);
+            
+            // Poinformuj, że zadanie zostało obsłużone
+            sem_post((*obecnie_obslugiwane_zadanie).odpowiedz_czy_zostalo_wykonane_zadanie);
+              
+			lista_zadan.erase(obecnie_obslugiwane_zadanie, obecnie_obslugiwane_zadanie+1);
+            
+            // Poinformuj, że zwolniło się miejsce w liście żądań
+            sem_post(&dostep_do_listy_zadan_dla_okreslonej_liczby_programow);
+            
+			
 		};
         
-        // Zwolnij dostęp do listy żądań dodane
-         sem_post(&dostep_do_listy_zadan);
-
+        // Zwolnij dostęp do listy żądań 
+        sem_post(&dostep_do_listy_zadan);
 	}
+    
 	pthread_exit(NULL);
 }
 
 int main(int argc, char* argv[])
 {
     sem_init(&dostep_do_listy_zadan, 0, 1);
-
+    
+    
 	// wczytanie z poziomu konsoli liczby zadan do obsluzenia 
 	//char* liczba_zadan= argv[1];
-	int liczba_zadan_w_kolejce = atoi (argv[1]);
-	printf("liczba zadan w kolejce %d\n", liczba_zadan_w_kolejce);
+	//int liczba_zadan_w_kolejce = ;
+	//printf("liczba zadan w kolejce %d\n", liczba_zadan_w_kolejce);
+    sem_init(&dostep_do_listy_zadan_dla_okreslonej_liczby_programow, 0, atoi (argv[1]));
 
-
-	int n=2;
+	int n = argc - 2;
 	//Inicjuj wątki programów
 	plik_caly moj_plik;
 	vector <plik_caly> dane_wejsciowe;
